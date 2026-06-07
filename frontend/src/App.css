@@ -1,0 +1,65 @@
+body{
+  margin:0;
+  font-family:Arial;
+  background:linear-gradient(135deg,#0f172a,#1e3a8a);
+  color:white;
+}
+
+.navbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:20px 60px;
+  background:rgba(255,255,255,0.1);
+  backdrop-filter:blur(10px);
+}
+
+.logo{
+  font-size:30px;
+  font-weight:bold;
+}
+
+ul{
+  display:flex;
+  gap:30px;
+  list-style:none;
+  align-items:center;
+}
+
+button{
+  padding:10px 20px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.hero{
+  text-align:center;
+  padding:120px 20px;
+}
+
+.hero h1{
+  font-size:60px;
+}
+
+.heroBtn{
+  background:cyan;
+  margin-top:20px;
+}
+
+.features{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:20px;
+  padding:50px;
+}
+
+.card{
+  padding:40px;
+  border-radius:20px;
+  background:rgba(255,255,255,0.1);
+  backdrop-filter:blur(15px);
+  text-align:center;
+  font-size:22px;
+}
