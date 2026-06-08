@@ -1,7 +1,6 @@
 const express = require('express');
 const router  = express.Router();
 const mongoose = require('mongoose');
-const Student = require('../models/Student'); // add this at the top
 
 // ── Lazy model getters (called inside handlers, not at module load) ──
 const getModels = () => ({
@@ -31,8 +30,9 @@ const protect = (req, res, next) => {
 router.get('/', async (req, res) => {
   try {
     const { Student } = getModels();
-    const Student = mongoose.models.Student || mongoose.model('Student', studentSchema);
-    const students = await Student.find().sort({ createdAt: -1 });
+    const { department } = req.query;
+    const query = department ? { department } : {};
+    const students = await Student.find(query).sort({ rollNumber: 1 });
     res.json(students);
   } catch (err) {
     res.status(500).json({ message: err.message });
