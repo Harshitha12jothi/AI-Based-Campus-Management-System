@@ -1,20 +1,47 @@
-// ╔══════════════════════════════════════════════════════════════╗
-// ║  BACKEND FIX — Add these routes to your server.js            ║
-// ║  These routes are called by the fixed StudentDashboard.js    ║
-// ╚══════════════════════════════════════════════════════════════╝
+const express = require('express');
+const router  = express.Router();
+const mongoose = require('mongoose');
 
-// ── ADD THESE 4 ROUTES TO YOUR server.js ────────────────────────
-// Place them BEFORE the app.listen() line at the bottom
+// ── Get models registered in server.js ──────────────────────
+const Student    = mongoose.model('Student');
+const Attendance = mongoose.model('Attendance');
+const Marks      = mongoose.model('Marks');
+const Fees       = mongoose.model('Fees');
 
-
-// ─── 1. GET /api/students/by-user/:userId ─────────────────────
-// Called when student logs in but roll number not in localStorage
-app.get('/api/students/by-user/:userId', protect, async (req, res) => {
+// ── Simple auth middleware (reads JWT from header) ───────────
+const protect = (req, res, next) => {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer '))
+    return res.status(401).json({ message: 'No token provided' });
   try {
-    const student = await Student.findOne({ user: req.params.userId })
-      .populate('user', 'name email phone')
-      .populate('department', 'name code');
-    if (!student) return res.status(404).json({ message: 'Student not found for this user.' });
+    const jwt  = require('jsonwebtoken');
+    const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+
+// ─── GET /api/students ────────────────────────────────────────
+// Get all students
+router.get('/', async (req, res) => {
+  try {
+    const students = await Student.find().sort({ createdAt: -1 });
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+// ─── GET /api/students/by-roll/:roll ─────────────────────────
+// Get single student by roll number
+router.get('/by-roll/:roll', async (req, res) => {
+  try {
+    const student = await Student.findOne({ rollNumber: req.params.roll });
+    if (!student) return res.status(404).json({ message: 'Student not found' });
     res.json(student);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -22,53 +49,31 @@ app.get('/api/students/by-user/:userId', protect, async (req, res) => {
 });
 
 
-// ─── 2. GET /api/students/my-profile ─────────────────────────
-// Called to get logged-in student's full profile using JWT token
-app.get('/api/students/my-profile', protect, async (req, res) => {
+// ─── GET /api/students/my-profile ────────────────────────────
+// Get logged-in student profile using JWT
+router.get('/my-profile', protect, async (req, res) => {
   try {
-    const student = await Student.findOne({ user: req.user.id })
-      .populate('user', 'name email phone department')
-      .populate('department', 'name code');
-    if (!student) return res.status(404).json({ message: 'Student profile not found.' });
-
-    // Return a merged object with user fields + student fields
-    const result = {
-      ...student.toObject(),
-      name:       student.user?.name,
-      email:      student.user?.email,
-      phone:      student.user?.phone,
-      department: student.department?.code || student.departmentCode,
-    };
-    res.json(result);
+    // Try to find by user id or roll number stored in token
+    const student = await Student.findOne({
+      $or: [
+        { rollNumber: req.user.rollNumber },
+        { email: req.user.email }
+      ]
+    });
+    if (!student) return res.status(404).json({ message: 'Student profile not found' });
+    res.json(student);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
 
-// ─── 3. FIX /api/attendance/student/:roll ─────────────────────
-// Now accepts ROLL NUMBER (not ObjectId) — matches what frontend sends
-// REPLACE the existing attendance student route with this one
-
-app.get('/api/attendance/student/:roll', protect, async (req, res) => {
+// ─── GET /api/students/:roll/attendance ──────────────────────
+// Get attendance for a student by roll number
+router.get('/:roll/attendance', async (req, res) => {
   try {
     const roll = req.params.roll;
-
-    // Find student by roll number
-    const student = await Student.findOne({ rollNumber: roll });
-
-    // If not found by roll, try as ObjectId (backward compat)
-    let studentId = student?._id;
-    if (!studentId && roll.match(/^[a-f\d]{24}$/i)) {
-      studentId = roll; // it's already an ObjectId
-    }
-    if (!studentId) {
-      return res.json({ records: [], total: 0, present: 0, absent: 0, late: 0, percentage: 0 });
-    }
-
-    const records = await Attendance.find({ student: studentId })
-      .populate('subject', 'name code')
-      .sort('-date');
+    const records = await Attendance.find({ rollNumber: roll }).sort({ date: -1 });
 
     const total   = records.length;
     const present = records.filter(r => r.status === 'Present').length;
@@ -77,20 +82,8 @@ app.get('/api/attendance/student/:roll', protect, async (req, res) => {
     const pct     = total ? ((present / total) * 100).toFixed(1) : 0;
 
     res.json({
-      records: records.map(r => ({
-        date:    r.date,
-        subject: r.subject?.name || r.subjectCode || '—',
-        status:  r.status,
-        remarks: r.remarks || '',
-      })),
-      summary: {
-        total,
-        present,
-        absent,
-        late,
-        percentage: parseFloat(pct),
-      },
-      // also send flat fields for backward compat
+      records,
+      summary: { total, present, absent, late, percentage: parseFloat(pct) },
       total, present, absent, late, percentage: parseFloat(pct),
     });
   } catch (err) {
@@ -99,83 +92,40 @@ app.get('/api/attendance/student/:roll', protect, async (req, res) => {
 });
 
 
-// ─── 4. FIX /api/marks/student/:roll ─────────────────────────
-// Now accepts ROLL NUMBER — matches what frontend sends
-
-app.get('/api/marks/student/:roll', protect, async (req, res) => {
+// ─── GET /api/students/:roll/marks ───────────────────────────
+// Get marks for a student by roll number
+router.get('/:roll/marks', async (req, res) => {
   try {
-    const roll = req.params.roll;
-
-    // Find student by roll number
-    const student = await Student.findOne({ rollNumber: roll });
-    let studentId = student?._id;
-    if (!studentId && roll.match(/^[a-f\d]{24}$/i)) {
-      studentId = roll;
-    }
-    if (!studentId) {
-      return res.json({ marks: [], records: [], average: 0, grade: 'F', count: 0 });
-    }
-
-    const marksData = await Marks.find({ student: studentId })
-      .populate({ path: 'exam', populate: { path: 'subject', select: 'name code' } })
-      .populate('subject', 'name code')
-      .sort('-createdAt');
-
-    const records = marksData.map(m => ({
-      subject:  m.exam?.subject?.name || m.subject?.name || '—',
-      examType: m.exam?.type || 'Exam',
-      marks:    m.marks,
-      maxMarks: m.maxMarks || 100,
-      grade:    m.grade,
-      percentage: m.percentage,
-    }));
+    const records = await Marks.find({ rollNumber: req.params.roll }).sort({ date: -1 });
 
     const avg = records.length
-      ? Math.round(records.reduce((s, r) => s + (r.marks / r.maxMarks) * 100, 0) / records.length)
+      ? Math.round(
+          records.reduce((s, r) => s + (parseFloat(r.marksObtained) / parseFloat(r.maxMarks)) * 100, 0)
+          / records.length
+        )
       : 0;
 
     const getGrade = (p) => {
-      if (p >= 90) return 'O'; if (p >= 80) return 'A+'; if (p >= 70) return 'A';
-      if (p >= 60) return 'B+'; if (p >= 50) return 'B'; if (p >= 40) return 'C'; return 'F';
+      if (p >= 90) return 'O';  if (p >= 80) return 'A+'; if (p >= 70) return 'A';
+      if (p >= 60) return 'B+'; if (p >= 50) return 'B';  if (p >= 40) return 'C';
+      return 'F';
     };
 
-    res.json({ marks: records, records, average: avg, grade: getGrade(avg), count: records.length });
+    res.json({ records, average: avg, grade: getGrade(avg), count: records.length });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
 
-// ─── 5. FIX /api/fees/student/:roll ──────────────────────────
-// Now accepts ROLL NUMBER — matches what frontend sends
-
-app.get('/api/fees/student/:roll', protect, async (req, res) => {
+// ─── GET /api/students/:roll/fees ────────────────────────────
+// Get fees for a student by roll number
+router.get('/:roll/fees', async (req, res) => {
   try {
-    const roll = req.params.roll;
+    const fees = await Fees.find({ rollNumber: req.params.roll }).sort({ createdAt: -1 });
 
-    const student = await Student.findOne({ rollNumber: roll });
-    let studentId = student?._id;
-    if (!studentId && roll.match(/^[a-f\d]{24}$/i)) {
-      studentId = roll;
-    }
-    if (!studentId) {
-      return res.json({ fees: [], summary: { total: 0, paid: 0, pending: 0 } });
-    }
-
-    const feeData = await Fee.find({ student: studentId }).sort('-createdAt');
-
-    const fees = feeData.map(f => ({
-      receiptNo:   f.receiptNo || '—',
-      feeType:     f.feeType || 'Fee',
-      amount:      f.amount,
-      paid:        f.status === 'Paid' ? f.amount : 0,
-      balance:     f.status === 'Paid' ? 0 : f.amount,
-      status:      f.status?.toLowerCase() || 'pending',
-      paymentDate: f.paidDate ? new Date(f.paidDate).toLocaleDateString() : '—',
-    }));
-
-    const paid    = fees.filter(f => f.status === 'paid').reduce((s, f) => s + f.amount, 0);
-    const pending = fees.filter(f => f.status !== 'paid').reduce((s, f) => s + f.amount, 0);
+    const paid    = fees.filter(f => f.status === 'Paid').reduce((s, f) => s + parseFloat(f.amount || 0), 0);
+    const pending = fees.filter(f => f.status !== 'Paid').reduce((s, f) => s + parseFloat(f.amount || 0), 0);
 
     res.json({
       fees,
@@ -188,78 +138,47 @@ app.get('/api/fees/student/:roll', protect, async (req, res) => {
 });
 
 
-// ─── 6. FIX /api/placements/recommend/:roll ──────────────────
-// Now accepts ROLL NUMBER
-
-app.post('/api/placements/recommend/:roll', protect, async (req, res) => {
+// ─── POST /api/students ───────────────────────────────────────
+// Add a new student
+router.post('/', async (req, res) => {
   try {
-    const roll = req.params.roll;
+    const student = new Student(req.body);
+    const saved   = await student.save();
+    res.status(201).json(saved);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 
-    const student = await Student.findOne({ rollNumber: roll }).populate('user', 'name email');
-    if (!student) return res.status(404).json({ message: 'Student not found.' });
 
-    const placements = await Placement.find({ status: 'Open' });
+// ─── PUT /api/students/:roll ──────────────────────────────────
+// Update student by roll number
+router.put('/:roll', async (req, res) => {
+  try {
+    const updated = await Student.findOneAndUpdate(
+      { rollNumber: req.params.roll },
+      req.body,
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: 'Student not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 
-    const scored = placements.map(p => {
-      let score = 0;
-      if (student.cgpa >= p.eligibilityCGPA) score += 40;
-      const studentSkills = (student.skills || []).map(s => s.toLowerCase());
-      const overlap = (p.requiredSkills || []).filter(s =>
-        studentSkills.includes(s.toLowerCase())
-      ).length;
-      score += overlap * 15;
-      if (!p.eligibleDepts?.length || p.eligibleDepts.includes(student.departmentCode)) score += 10;
-      return { ...p.toObject(), score, matchPercent: Math.min(score, 100) };
-    })
-    .filter(p => p.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
 
-    res.json({
-      student: {
-        name:       student.user?.name,
-        rollNumber: student.rollNumber,
-        cgpa:       student.cgpa,
-        skills:     student.skills,
-      },
-      recommendations: scored,
-    });
+// ─── DELETE /api/students/:roll ───────────────────────────────
+// Delete student by roll number
+router.delete('/:roll', async (req, res) => {
+  try {
+    const deleted = await Student.findOneAndDelete({ rollNumber: req.params.roll });
+    if (!deleted) return res.status(404).json({ message: 'Student not found' });
+    res.json({ message: 'Student deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
 
-// ─── 7. ALSO FIX AUTH /api/auth/me ────────────────────────────
-// Make sure it returns rollNumber for students
-// REPLACE your existing /api/auth/me with this:
-
-app.get('/api/auth/me', protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    // For students, attach roll number from Student collection
-    if (user.role === 'student') {
-      const student = await Student.findOne({ user: user._id })
-        .populate('department', 'name code');
-      if (student) {
-        return res.json({
-          ...user.toObject(),
-          rollNumber:  student.rollNumber,
-          roll:        student.rollNumber,
-          studentId:   student._id,
-          cgpa:        student.cgpa,
-          skills:      student.skills,
-          year:        student.year,
-          section:     student.section,
-          semester:    student.semester,
-          department:  student.department?.code || user.department,
-        });
-      }
-    }
-    res.json(user);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+module.exports = router;
