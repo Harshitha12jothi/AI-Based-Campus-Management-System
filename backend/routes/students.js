@@ -2,11 +2,13 @@ const express = require('express');
 const router  = express.Router();
 const mongoose = require('mongoose');
 
-// ── Get models registered in server.js ──────────────────────
-const Student    = mongoose.model('Student');
-const Attendance = mongoose.model('Attendance');
-const Marks      = mongoose.model('Marks');
-const Fees       = mongoose.model('Fees');
+// ── Lazy model getters (called inside handlers, not at module load) ──
+const getModels = () => ({
+  Student:    mongoose.model('Student'),
+  Attendance: mongoose.model('Attendance'),
+  Marks:      mongoose.model('Marks'),
+  Fees:       mongoose.model('Fees'),
+});
 
 // ── Simple auth middleware (reads JWT from header) ───────────
 const protect = (req, res, next) => {
@@ -14,7 +16,7 @@ const protect = (req, res, next) => {
   if (!auth || !auth.startsWith('Bearer '))
     return res.status(401).json({ message: 'No token provided' });
   try {
-    const jwt  = require('jsonwebtoken');
+    const jwt     = require('jsonwebtoken');
     const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
     req.user = decoded;
     next();
@@ -25,9 +27,9 @@ const protect = (req, res, next) => {
 
 
 // ─── GET /api/students ────────────────────────────────────────
-// Get all students
 router.get('/', async (req, res) => {
   try {
+    const { Student } = getModels();
     const students = await Student.find().sort({ createdAt: -1 });
     res.json(students);
   } catch (err) {
@@ -37,9 +39,9 @@ router.get('/', async (req, res) => {
 
 
 // ─── GET /api/students/by-roll/:roll ─────────────────────────
-// Get single student by roll number
 router.get('/by-roll/:roll', async (req, res) => {
   try {
+    const { Student } = getModels();
     const student = await Student.findOne({ rollNumber: req.params.roll });
     if (!student) return res.status(404).json({ message: 'Student not found' });
     res.json(student);
@@ -50,10 +52,9 @@ router.get('/by-roll/:roll', async (req, res) => {
 
 
 // ─── GET /api/students/my-profile ────────────────────────────
-// Get logged-in student profile using JWT
 router.get('/my-profile', protect, async (req, res) => {
   try {
-    // Try to find by user id or roll number stored in token
+    const { Student } = getModels();
     const student = await Student.findOne({
       $or: [
         { rollNumber: req.user.rollNumber },
@@ -69,10 +70,10 @@ router.get('/my-profile', protect, async (req, res) => {
 
 
 // ─── GET /api/students/:roll/attendance ──────────────────────
-// Get attendance for a student by roll number
 router.get('/:roll/attendance', async (req, res) => {
   try {
-    const roll = req.params.roll;
+    const { Attendance } = getModels();
+    const roll    = req.params.roll;
     const records = await Attendance.find({ rollNumber: roll }).sort({ date: -1 });
 
     const total   = records.length;
@@ -93,9 +94,9 @@ router.get('/:roll/attendance', async (req, res) => {
 
 
 // ─── GET /api/students/:roll/marks ───────────────────────────
-// Get marks for a student by roll number
 router.get('/:roll/marks', async (req, res) => {
   try {
+    const { Marks } = getModels();
     const records = await Marks.find({ rollNumber: req.params.roll }).sort({ date: -1 });
 
     const avg = records.length
@@ -119,9 +120,9 @@ router.get('/:roll/marks', async (req, res) => {
 
 
 // ─── GET /api/students/:roll/fees ────────────────────────────
-// Get fees for a student by roll number
 router.get('/:roll/fees', async (req, res) => {
   try {
+    const { Fees } = getModels();
     const fees = await Fees.find({ rollNumber: req.params.roll }).sort({ createdAt: -1 });
 
     const paid    = fees.filter(f => f.status === 'Paid').reduce((s, f) => s + parseFloat(f.amount || 0), 0);
@@ -139,9 +140,9 @@ router.get('/:roll/fees', async (req, res) => {
 
 
 // ─── POST /api/students ───────────────────────────────────────
-// Add a new student
 router.post('/', async (req, res) => {
   try {
+    const { Student } = getModels();
     const student = new Student(req.body);
     const saved   = await student.save();
     res.status(201).json(saved);
@@ -152,9 +153,9 @@ router.post('/', async (req, res) => {
 
 
 // ─── PUT /api/students/:roll ──────────────────────────────────
-// Update student by roll number
 router.put('/:roll', async (req, res) => {
   try {
+    const { Student } = getModels();
     const updated = await Student.findOneAndUpdate(
       { rollNumber: req.params.roll },
       req.body,
@@ -169,9 +170,9 @@ router.put('/:roll', async (req, res) => {
 
 
 // ─── DELETE /api/students/:roll ───────────────────────────────
-// Delete student by roll number
 router.delete('/:roll', async (req, res) => {
   try {
+    const { Student } = getModels();
     const deleted = await Student.findOneAndDelete({ rollNumber: req.params.roll });
     if (!deleted) return res.status(404).json({ message: 'Student not found' });
     res.json({ message: 'Student deleted successfully' });

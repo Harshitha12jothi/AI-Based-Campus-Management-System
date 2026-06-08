@@ -8,10 +8,8 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use('/api/chat', require('./routes/chat'));
-app.use('/api/students', require('./routes/students'));
 
-// ── Register all Mongoose Models ─────────────────────────────
+// ── Register all Mongoose Models FIRST ───────────────────────
 const StudentSchema = new mongoose.Schema({
   rollNumber: String, firstName: String, lastName: String,
   email: String, phone: String, department: String,
@@ -66,7 +64,9 @@ mongoose.model('Fees',       FeesSchema);
 mongoose.model('Timetable',  TimetableSchema);
 mongoose.model('Parent',     ParentSchema);
 
-// ── Routes ───────────────────────────────────────────────────
+// ── Routes (ALL after models are registered) ─────────────────
+app.use('/api/chat',            require('./routes/chat'));
+app.use('/api/students',        require('./routes/students'));
 app.use('/api/auth',            require('./routes/auth'));
 app.use('/api/dashboard',       require('./routes/dashboard'));
 app.use('/api/attendance',      require('./routes/attendance'));
