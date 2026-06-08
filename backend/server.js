@@ -9,6 +9,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const attendanceRoutes = require('./routes/attendance');
+app.use('/attendance', attendanceRoutes);
+
 // ── Register all Mongoose Models FIRST ───────────────────────
 const StudentSchema = new mongoose.Schema({
   rollNumber: String, firstName: String, lastName: String,
