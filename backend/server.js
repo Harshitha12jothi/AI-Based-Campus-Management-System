@@ -80,14 +80,21 @@ app.use('/api/notices',         require('./routes/notices'));
 app.use('/api/ai/placement',    require('./routes/placement'));
 app.use('/api/timetable',       require('./routes/timetable'));
 app.use('/api/parent',          require('./routes/parent'));
+
+
 // ── MongoDB Connection ────────────────────────────────────────
-mongoose.connect(process.env.MONGO_URL)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB error:', err.message));
 
-// Only listen locally, not on Vercel
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(5000, () => console.log('🚀 Server running on http://localhost:5000'));
-}
+const connectDB = async () => {
+  try {
+    console.log("MONGO_URL =", process.env.MONGO_URL);
 
+    await mongoose.connect(process.env.MONGO_URL);
+
+    console.log("✅ MongoDB connected");
+  } catch (err) {
+    console.error("❌ MongoDB error:", err.message);
+  }
+};
+
+connectDB();
 module.exports = app;
