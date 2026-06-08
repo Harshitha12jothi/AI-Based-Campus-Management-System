@@ -20,6 +20,8 @@ app.get('/', (req, res) => {
   res.send('AI Campus Management System Backend is Running 🚀');
 });
 
+app.use('/api/dashboard', require('./routes/dashboard'));
+
 module.exports = app;
 
 // ── Register all Mongoose Models FIRST ───────────────────────
