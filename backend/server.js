@@ -12,6 +12,16 @@ app.use(express.json());
 const attendanceRoutes = require('./routes/attendance');
 app.use('/attendance', attendanceRoutes);
 
+// Routes
+app.use('/api/students', require('./routes/students'));
+
+// Home Route
+app.get('/', (req, res) => {
+  res.send('AI Campus Management System Backend is Running 🚀');
+});
+
+module.exports = app;
+
 // ── Register all Mongoose Models FIRST ───────────────────────
 const StudentSchema = new mongoose.Schema({
   rollNumber: String, firstName: String, lastName: String,
