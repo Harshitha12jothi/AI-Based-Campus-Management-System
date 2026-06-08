@@ -56,13 +56,14 @@ const ParentSchema = new mongoose.Schema({
   childName: String, department: String, city: String,
 }, { timestamps: true });
 
-mongoose.model('Student',    StudentSchema);
-mongoose.model('Faculty',    FacultySchema);
-mongoose.model('Attendance', AttendanceSchema);
-mongoose.model('Marks',      MarksSchema);
-mongoose.model('Fees',       FeesSchema);
-mongoose.model('Timetable',  TimetableSchema);
-mongoose.model('Parent',     ParentSchema);
+// ✅ Safe registration — won't crash if already registered
+mongoose.models.Student    || mongoose.model('Student',    StudentSchema);
+mongoose.models.Faculty    || mongoose.model('Faculty',    FacultySchema);
+mongoose.models.Attendance || mongoose.model('Attendance', AttendanceSchema);
+mongoose.models.Marks      || mongoose.model('Marks',      MarksSchema);
+mongoose.models.Fees       || mongoose.model('Fees',       FeesSchema);
+mongoose.models.Timetable  || mongoose.model('Timetable',  TimetableSchema);
+mongoose.models.Parent     || mongoose.model('Parent',     ParentSchema);
 
 // ── Routes (ALL after models are registered) ─────────────────
 app.use('/api/chat',            require('./routes/chat'));
