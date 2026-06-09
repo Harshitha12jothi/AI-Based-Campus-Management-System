@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 
 // Get models only when needed
 const getModels = () => ({
-  Student: mongoose.model('Students'),
+  Student: mongoose.model('Student'),   // ✅ correct
   Attendance: mongoose.model('Attendance'),
   Marks: mongoose.model('Marks'),
   Fees: mongoose.model('Fees'),
