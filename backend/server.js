@@ -1184,17 +1184,22 @@ const fixedURI = MONGO_URI.startsWith('mongodb://')
   : MONGO_URI;
 
 const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) {
+    console.log('♻️ Reusing existing MongoDB connection');
+    return;
+  }
   try {
     console.log('🔌 Connecting to MongoDB Atlas...');
     await mongoose.connect(fixedURI, {
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS:         10000,
+      serverSelectionTimeoutMS: 30000,
+      connectTimeoutMS:         30000,
+      socketTimeoutMS:          45000,
+      maxPoolSize:              10,
+      bufferCommands:           false,
     });
     console.log('✅ MongoDB connected successfully');
   } catch (err) {
     console.error('❌ MongoDB error:', err.message);
-    console.log('💡 Fix: Update .env → MONGO_URI=mongodb+srv://...');
-    console.log('💡 Or whitelist your IP at: https://cloud.mongodb.com → Network Access');
   }
 };
 
