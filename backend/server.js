@@ -20,9 +20,12 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// uploads folder
 const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+} catch (e) {
+  console.log('uploads dir skipped (read-only fs)');
+}
 app.use('/uploads', express.static(uploadDir));
 
 // ══════════════════════════════════════════════════════════════
