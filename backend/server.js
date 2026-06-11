@@ -4,7 +4,11 @@
 // ╚══════════════════════════════════════════════════════════════╝
 
 const express  = require('express');
-mongoose.set('bufferCommands', false);
+const mongoose = require('mongoose');
+const cors     = require('cors');
+
+
+
 const cors     = require('cors');
 const dotenv   = require('dotenv');
 const path     = require('path');
