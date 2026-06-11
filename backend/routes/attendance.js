@@ -7,7 +7,6 @@ const getModels = () => ({
   Attendance: mongoose.model('Attendance'),
 });
 
-// ── GET /api/attendance ──────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
     const { Attendance } = getModels();
@@ -17,7 +16,6 @@ router.get('/', async (req, res) => {
     if (year)       q.year       = { $regex: new RegExp(`^${year}$`, 'i') };
     if (date)       q.date       = date;
     if (rollNumber) q.rollNumber = { $regex: new RegExp(`^${rollNumber}$`, 'i') };
-
     const records = await Attendance.find(q).sort({ date: -1 });
     res.json(records);
   } catch (e) {
@@ -25,29 +23,24 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ── GET /api/attendance/student/:rollNumber ──────────────────
 router.get('/student/:rollNumber', async (req, res) => {
   try {
     const { Attendance, Student } = getModels();
     const roll = req.params.rollNumber;
-
     const student = await Student.findOne({
       rollNumber: { $regex: new RegExp(`^${roll}$`, 'i') }
     });
     if (!student) {
       return res.status(404).json({ message: `Student "${roll}" not found.` });
     }
-
     const records = await Attendance.find({
       rollNumber: { $regex: new RegExp(`^${roll}$`, 'i') }
     }).sort({ date: -1 }).limit(200);
-
     const total   = records.length;
     const present = records.filter(r => r.status === 'Present').length;
     const absent  = records.filter(r => r.status === 'Absent').length;
     const late    = records.filter(r => r.status === 'Late').length;
     const pct     = total > 0 ? parseFloat(((present / total) * 100).toFixed(1)) : 0;
-
     res.json({
       summary: { total, present, absent, late, percentage: pct },
       records: records.map(r => ({
@@ -58,23 +51,18 @@ router.get('/student/:rollNumber', async (req, res) => {
       })),
     });
   } catch (e) {
-    console.error('Attendance GET student error:', e);
     res.status(500).json({ message: e.message });
   }
 });
 
-// ── POST /api/attendance ─────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
     const { Attendance, Student } = getModels();
     const records = Array.isArray(req.body) ? req.body : [req.body];
-
     if (!records.length) {
       return res.status(400).json({ message: 'No attendance records provided.' });
     }
-
     const updatedRolls = new Set();
-
     for (const r of records) {
       await Attendance.findOneAndUpdate(
         { rollNumber: r.rollNumber, subject: r.subject, date: r.date },
@@ -83,8 +71,6 @@ router.post('/', async (req, res) => {
       );
       if (r.rollNumber) updatedRolls.add(r.rollNumber);
     }
-
-    // Recalculate attendance % for affected students
     for (const roll of updatedRolls) {
       const total   = await Attendance.countDocuments({ rollNumber: roll });
       const present = await Attendance.countDocuments({ rollNumber: roll, status: 'Present' });
@@ -94,15 +80,12 @@ router.post('/', async (req, res) => {
         { attendance: pct }
       );
     }
-
     res.status(201).json({ message: `Attendance saved for ${records.length} students.` });
   } catch (e) {
-    console.error('Attendance POST error:', e);
     res.status(400).json({ message: e.message });
   }
 });
 
-// ── PUT /api/attendance/:id ──────────────────────────────────
 router.put('/:id', async (req, res) => {
   try {
     const { Attendance } = getModels();
@@ -114,7 +97,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// ── DELETE /api/attendance/:id ───────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
     const { Attendance } = getModels();
