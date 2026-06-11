@@ -15,8 +15,25 @@ dotenv.config();
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
+
+// ── Ensure DB connected on every request ─────────────────────
+app.use(async (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      await mongoose.connect(MONGO_URI, {
+        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+      });
+    } catch (err) {
+      console.error('DB connect error:', err.message);
+    }
+  }
+  next();
+});
 // ── MIDDLEWARE ────────────────────────────────────────────────
-app.use(cors({ origin: '*', credentials: true }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
