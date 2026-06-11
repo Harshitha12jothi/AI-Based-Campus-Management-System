@@ -22,7 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const uploadDir = path.join(__dirname, 'uploads');
 try {
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+ try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch(e) { console.log('uploads skipped'); }
 } catch (e) {
   console.log('uploads dir skipped (read-only fs)');
 }
