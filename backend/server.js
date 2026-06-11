@@ -1188,36 +1188,36 @@ app.use((req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
-//  MONGODB CONNECTION  — supports both MONGO_URI and MONGO_URL
+//  MONGODB CONNECTION
 // ══════════════════════════════════════════════════════════════
 
 const MONGO_URI = process.env.MONGO_URI
                || process.env.MONGO_URL
                || 'mongodb://localhost:27017/campusai';
 
-// Use mongodb+srv if old format detected
-const fixedURI = MONGO_URI.startsWith('mongodb://')
-  && MONGO_URI.includes('pe2ndiu.mongodb.net')
-  ? `mongodb+srv://harshithajothi2005_db_user:Test1234@cluster0.pe2ndiu.mongodb.net/campus?retryWrites=true&w=majority`
-  : MONGO_URI;
+console.log('🔌 Connecting to MongoDB...');
+console.log('   URI:', MONGO_URI.substring(0, 60) + '...');
 
 const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) {
-    console.log('♻️ Reusing existing MongoDB connection');
-    return;
-  }
   try {
-    console.log('🔌 Connecting to MongoDB Atlas...');
-    await mongoose.connect(fixedURI, {
-      serverSelectionTimeoutMS: 30000,
-      connectTimeoutMS:         30000,
-      socketTimeoutMS:          45000,
-      maxPoolSize:              10,
-      bufferCommands:           false,
+    await mongoose.connect(MONGO_URI, {
+      ssl:                       true,
+      tls:                       true,
+      serverSelectionTimeoutMS:  15000,
+      connectTimeoutMS:          15000,
+      socketTimeoutMS:           45000,
+      family:                    4,        // force IPv4
+      directConnection:          false,
     });
     console.log('✅ MongoDB connected successfully');
   } catch (err) {
     console.error('❌ MongoDB error:', err.message);
+    console.log('');
+    console.log('💡 Possible fixes:');
+    console.log('   1. Check your internet connection');
+    console.log('   2. Try mobile hotspot instead of college WiFi');
+    console.log('   3. Check Atlas IP whitelist at cloud.mongodb.com');
+    console.log('   4. Server runs in OFFLINE MODE — data will not persist');
   }
 };
 
