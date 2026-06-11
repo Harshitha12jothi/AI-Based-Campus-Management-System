@@ -1201,14 +1201,9 @@ console.log('   URI:', MONGO_URI.substring(0, 60) + '...');
 const connectDB = async () => {
   try {
     await mongoose.connect(MONGO_URI, {
-      ssl:                       true,
-      tls:                       true,
-      serverSelectionTimeoutMS:  15000,
-      connectTimeoutMS:          15000,
-      socketTimeoutMS:           45000,
-      family:                    4,        // force IPv4
-      directConnection:          false,
-    });
+  serverSelectionTimeoutMS: 30000,
+  connectTimeoutMS: 30000,
+});
     console.log('✅ MongoDB connected successfully');
   } catch (err) {
     console.error('❌ MongoDB error:', err.message);
@@ -1246,3 +1241,5 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+
+
